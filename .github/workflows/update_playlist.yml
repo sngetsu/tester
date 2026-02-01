@@ -1,0 +1,36 @@
+name: Actualizar Playlist M3U
+
+on:
+  workflow_dispatch: # Permite ejecutar con un botón manual
+  schedule:
+    - cron: '0 0 */3 * *' # Ejecutar cada 3 días a las 00:00 UTC
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      # Permisos necesarios para que el bot pueda guardar el archivo m3u en el repo
+      contents: write 
+
+    steps:
+    - name: Checkout del código
+      uses: actions/checkout@v4
+
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Instalar dependencias
+      run: |
+        pip install -r requirements.txt
+
+    - name: Ejecutar Scraper
+      run: python scraper.py
+
+    - name: Guardar cambios (Commit & Push)
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "Actualización automática de playlist m3u"
+        file_pattern: "*.m3u"
