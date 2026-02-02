@@ -19,6 +19,13 @@ def extraer_urls_del_xml(url_xml):
     try:
         resp = requests.get(url_xml, headers=HEADERS, timeout=15)
         soup = BeautifulSoup(resp.content, 'xml')
+        
+        # Detectar si es un índice de sitemaps (contiene <sitemap>) en lugar de urls
+        if soup.find('sitemap'):
+            print("❌ ERROR: Has introducido el sitemap INDICE (el principal).")
+            print("👉 Por favor, usa uno de los sitemaps de items, ejemplo: https://missav.ws/sitemap_items_477.xml")
+            return []
+
         urls = [loc.text for loc in soup.find_all('loc')]
         return urls
     except Exception as e:
@@ -39,7 +46,7 @@ def desempaquetar_javascript(html):
         
         if "surrit" not in palabras and "missav" not in palabras: return None
 
-        # Reconstrucción heurística del UUID (8-4-4-4-12)
+        # Reconstrucción heurística del UUID
         part_8, part_12 = "", ""
         part_4s = []
 
@@ -49,7 +56,6 @@ def desempaquetar_javascript(html):
                 elif len(p) == 12: part_12 = p
                 elif len(p) == 4: part_4s.append(p)
         
-        # MissAV suele invertir el orden de los bloques de 4 caracteres
         if part_8 and part_12 and len(part_4s) >= 3:
             uuid = f"{part_8}-{part_4s[2]}-{part_4s[1]}-{part_4s[0]}-{part_12}"
             return f"https://surrit.com/{uuid}/playlist.m3u8"
@@ -69,70 +75,66 @@ def procesar_pagina(url):
         # Título y Foto
         meta_title = soup.find('meta', property='og:title')
         titulo = meta_title['content'] if meta_title else "Unknown"
-        titulo = titulo.replace(',', ' ').strip()
+        titulo = titulo.replace(',', ' ').strip() # Limpiar comas para M3U
         
         meta_img = soup.find('meta', property='og:image')
         imagen = meta_img['content'] if meta_img else ""
 
-        # Buscar Video
-        video_url = ""
-        # Intento 1: Regex simple
-        match_directo = re.search(r'https?:\\?\/\\?\/[^\s"\'<>]+\.m3u8', html)
-        if match_directo:
-            video_url = match_directo.group(0).replace('\\', '')
-        
-        # Intento 2: Desempaquetado JS
-        if not video_url or "surrit" not in video_url:
-            video_url = desempaquetar_javascript(html)
+        # Buscar Video (Desempaquetado JS)
+        video_url = desempaquetar_javascript(html)
+
+        # Si falla el JS, intentar búsqueda directa por si acaso
+        if not video_url:
+            match_directo = re.search(r'https?:\\?\/\\?\/[^\s"\'<>]+\.m3u8', html)
+            if match_directo:
+                video_url = match_directo.group(0).replace('\\', '')
 
         if video_url and "http" in video_url:
-            print(f"   ✅ OK: {titulo[:30]}...")
+            print(f"   ✅ OK: {titulo[:40]}...")
             return f'#EXTINF:-1 tvg-logo="{imagen}" group-title="MissAV" type="movie",{titulo}\n{video_url}\n'
         
         return None
     except Exception as e:
-        print(f"   ❌ Error: {e}")
+        print(f"   ❌ Error procesando: {e}")
         return None
 
 def main():
-    # 1. Obtener la URL ingresada manualmente desde GitHub Actions
     target_sitemap = os.getenv('TARGET_SITEMAP')
     
     if not target_sitemap:
         print("❌ Error: No se ingresó ninguna URL de Sitemap.")
         sys.exit(1)
 
-    print(f"--- INICIO: Procesando bloque completo: {target_sitemap} ---")
+    print(f"--- INICIO: Procesando {target_sitemap} SIN FILTROS ---")
     
-    # Modo "Append" ('a') para no borrar lo que ya tenías guardado de ejecuciones anteriores
+    urls = extraer_urls_del_xml(target_sitemap)
+    
+    if not urls:
+        print("⚠️ No se encontraron URLs o el archivo es incorrecto.")
+        sys.exit(1)
+
+    print(f"📊 Total de videos a procesar: {len(urls)}")
+    
     with open(ARCHIVO_SALIDA, "a", encoding="utf-8") as f:
-        # Si el archivo está vacío, escribimos la cabecera
-        if os.stat(ARCHIVO_SALIDA).st_size == 0:
+        # Escribir cabecera solo si el archivo es nuevo
+        if not os.path.exists(ARCHIVO_SALIDA) or os.stat(ARCHIVO_SALIDA).st_size == 0:
             f.write("#EXTM3U\n")
 
-        urls = extraer_urls_del_xml(target_sitemap)
-        print(f"📊 Total de videos en este XML: {len(urls)}")
-        
         count = 0
         for url_video in urls:
             count += 1
+            print(f"[{count}/{len(urls)}] {url_video} ...", end=" ")
             
-            # Filtro opcional (puedes quitarlo si quieres todo)
-            if "uncensored" not in url_video.lower():
-                print(f"[{count}/{len(urls)}] Saltado (Censurado)")
-                continue
-
-            print(f"[{count}/{len(urls)}] Procesando...", end=" ")
             linea = procesar_pagina(url_video)
             
             if linea:
                 f.write(linea)
-                f.flush() # Guardar inmediatamente en disco
+                f.flush()
             else:
-                print("   ⚠️ No se pudo extraer.")
+                print("⚠️ Sin video")
             
-            # Pausa pequeña para ser educado con el servidor
-            time.sleep(1) 
+            # Pausa pequeña
+            time.sleep(random.uniform(0.5, 1.5))
 
 if __name__ == "__main__":
     main()
