@@ -7,7 +7,7 @@ import os
 from bs4 import BeautifulSoup
 
 # --- CONFIGURACIÓN ---
-# Headers con idioma forzado a Inglés para evitar títulos en Portugués
+CARPETA_SALIDA = "playlists"  # <--- Nombre de la carpeta
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Referer': 'https://missav.ws/',
@@ -15,18 +15,19 @@ HEADERS = {
     'Cookie': 'language=en' 
 }
 
-def obtener_nombre_archivo(url_xml):
-    """Genera un nombre de archivo único basado en la URL del sitemap"""
-    # Ejemplo entrada: https://missav.ws/sitemap_items_477.xml
-    # Ejemplo salida: playlist_items_477.m3u
+def obtener_ruta_archivo(url_xml):
+    """Genera la ruta completa: playlists/playlist_items_477.m3u"""
+    nombre_archivo = "playlist_general.m3u"
     try:
         match = re.search(r'sitemap_(.*)\.xml', url_xml)
         if match:
-            suffix = match.group(1) # items_477
-            return f"playlist_{suffix}.m3u"
+            suffix = match.group(1) 
+            nombre_archivo = f"playlist_{suffix}.m3u"
     except:
         pass
-    return "playlist_general.m3u"
+    
+    # Unir carpeta con nombre de archivo
+    return os.path.join(CARPETA_SALIDA, nombre_archivo)
 
 def extraer_urls_del_xml(url_xml):
     print(f"📂 Leyendo XML: {url_xml}")
@@ -35,7 +36,7 @@ def extraer_urls_del_xml(url_xml):
         soup = BeautifulSoup(resp.content, 'xml')
         
         if soup.find('sitemap'):
-            print("❌ ERROR: Has introducido el sitemap ÍNDICE (el principal). Usa uno de items.")
+            print("❌ ERROR: Has introducido el sitemap ÍNDICE. Usa uno de items.")
             return []
 
         urls = [loc.text for loc in soup.find_all('loc')]
@@ -69,7 +70,6 @@ def desempaquetar_javascript(html):
 
 def procesar_pagina(url):
     try:
-        # Forzamos URL en inglés si no lo está
         if "/en/" not in url and "/dm" not in url: 
              url = url.replace("missav.ws/", "missav.ws/en/")
 
@@ -107,16 +107,20 @@ def main():
         print("❌ Error: No URL.")
         sys.exit(1)
 
-    # --- CAMBIO IMPORTANTE: NOMBRE DINÁMICO ---
-    archivo_salida = obtener_nombre_archivo(target_sitemap)
-    print(f"--- INICIO: Guardando en {archivo_salida} ---")
+    # --- CREAR CARPETA SI NO EXISTE ---
+    if not os.path.exists(CARPETA_SALIDA):
+        print(f"📁 Creando carpeta: {CARPETA_SALIDA}")
+        os.makedirs(CARPETA_SALIDA)
+
+    ruta_completa = obtener_ruta_archivo(target_sitemap)
+    print(f"--- INICIO: Guardando en {ruta_completa} ---")
     
     urls = extraer_urls_del_xml(target_sitemap)
     
     if not urls: sys.exit(1)
 
-    with open(archivo_salida, "w", encoding="utf-8") as f:
-        f.write("#EXTM3U\n") # Usamos "w" para crear archivo nuevo limpio para ESTA lista
+    with open(ruta_completa, "w", encoding="utf-8") as f:
+        f.write("#EXTM3U\n")
 
         count = 0
         for url_video in urls:
