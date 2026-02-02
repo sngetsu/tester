@@ -1,50 +1,49 @@
-name: Scraper por Rango de Páginas
+name: Scraper por Rango de Paginas
 
 on:
   workflow_dispatch:
     inputs:
       category_url:
-        description: 'URL de la categoría (Ej: https://missav.ws/dm628/en/uncensored-leak)'
+        description: 'URL Categoria'
         required: true
         default: 'https://missav.ws/dm628/en/uncensored-leak'
       start_page:
-        description: 'Página Inicial (Número)'
+        description: 'Pagina Inicial'
         required: true
         default: '1'
       end_page:
-        description: 'Página Final (Número)'
+        description: 'Pagina Final'
         required: true
-        default: '5'
+        default: '2'
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  scrape-job:
+    runs-on: ubuntu-22.04
     
     permissions:
-      contents: write 
+      contents: write
 
     steps:
-    - name: Checkout del código
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Configurar Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.9'
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-    - name: Instalar dependencias
-      run: |
-        pip install requests beautifulsoup4
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
 
-    - name: Ejecutar Scraper de Páginas
-      env:
-        CATEGORY_URL: ${{ github.event.inputs.category_url }}
-        START_PAGE: ${{ github.event.inputs.start_page }}
-        END_PAGE: ${{ github.event.inputs.end_page }}
-      run: python scraper_paginas.py
+      - name: Run Scraper
+        env:
+          CATEGORY_URL: ${{ inputs.category_url }}
+          START_PAGE: ${{ inputs.start_page }}
+          END_PAGE: ${{ inputs.end_page }}
+        run: python scraper_paginas.py
 
-    - name: Guardar cambios
-      uses: stefanzweifel/git-auto-commit-action@v5
-      with:
-        commit_message: "Playlist páginas ${{ github.event.inputs.start_page }}-${{ github.event.inputs.end_page }}"
-        file_pattern: "playlists/*.m3u"
+      - name: Commit and Push
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Add playlist p${{ inputs.start_page }}-p${{ inputs.end_page }}"
+          file_pattern: "playlists/*.m3u"
