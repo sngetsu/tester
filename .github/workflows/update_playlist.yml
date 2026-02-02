@@ -1,16 +1,18 @@
-name: Actualizar Playlist M3U
+name: Procesar Sitemap Específico
 
 on:
-  workflow_dispatch: # Permite ejecutar con un botón manual
-  schedule:
-    - cron: '0 0 */3 * *' # Ejecutar cada 3 días a las 00:00 UTC
+  workflow_dispatch:
+    inputs:
+      sitemap_url:
+        description: 'URL del Sitemap XML a procesar (Ej: https://missav.ws/sitemap_items_475.xml)'
+        required: true
+        default: 'https://missav.ws/sitemap_items_477.xml'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     
     permissions:
-      # Permisos necesarios para que el bot pueda guardar el archivo m3u en el repo
       contents: write 
 
     steps:
@@ -24,13 +26,15 @@ jobs:
 
     - name: Instalar dependencias
       run: |
-        pip install -r requirements.txt
+        pip install requests beautifulsoup4 lxml
 
     - name: Ejecutar Scraper
+      env:
+        TARGET_SITEMAP: ${{ github.event.inputs.sitemap_url }}
       run: python scraper.py
 
-    - name: Guardar cambios (Commit & Push)
+    - name: Guardar cambios
       uses: stefanzweifel/git-auto-commit-action@v5
       with:
-        commit_message: "Actualización automática de playlist m3u"
+        commit_message: "Agregados videos de ${{ github.event.inputs.sitemap_url }}"
         file_pattern: "*.m3u"
