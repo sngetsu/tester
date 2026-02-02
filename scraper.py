@@ -134,7 +134,7 @@ def main():
             else:
                 print("⚠️ Falló")
             
-            time.sleep(random.uniform(0.5, 1))
+            time.sleep(random.uniform(0.5, 1.5))
 
 if __name__ == "__main__":
     main()
