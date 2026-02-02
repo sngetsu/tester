@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 # --- CONFIGURACIÓN ---
 URL_SITEMAP_INDEX = "https://missav.ws/sitemap.xml"
 ARCHIVO_SALIDA = "playlist_uncensored.m3u"
+MAX_VIDEOS = 50  # <--- LÍMITE AGREGADO PARA PRUEBAS
 
 # Headers para simular navegador real
 HEADERS = {
@@ -19,8 +20,8 @@ def obtener_sitemaps(url_index):
     try:
         resp = requests.get(url_index, headers=HEADERS, timeout=15)
         soup = BeautifulSoup(resp.content, 'xml')
-        # Invertimos para empezar por los más nuevos (opcional)
         sitemaps = [loc.text for loc in soup.find_all('loc')]
+        # Invertimos para empezar por los más nuevos
         return sitemaps[::-1] 
     except Exception as e:
         print(f"Error obteniendo índice: {e}")
@@ -46,7 +47,7 @@ def procesar_video(url):
         # Título
         meta_title = soup.find('meta', property='og:title')
         titulo = meta_title['content'] if meta_title else "Unknown"
-        titulo = titulo.replace(',', ' ').strip() # Limpieza para M3U
+        titulo = titulo.replace(',', ' ').strip() 
 
         # Imagen
         meta_img = soup.find('meta', property='og:image')
@@ -58,7 +59,6 @@ def procesar_video(url):
         
         if match:
             video_url = match.group(0).replace('\\', '')
-            # Filtro adicional de seguridad
             if "http" in video_url:
                 return f'#EXTINF:-1 tvg-logo="{imagen}" group-title="Uncensored" type="movie",{titulo}\n{video_url}\n'
         
@@ -67,10 +67,8 @@ def procesar_video(url):
         return None
 
 def main():
-    print("--- Iniciando Scraper (Filtro: Uncensored) ---")
+    print(f"--- Iniciando Scraper (Límite: {MAX_VIDEOS} videos) ---")
     
-    # Abrimos el archivo en modo escritura ('w') para empezar limpio
-    # OJO: Si quieres que se acumule, usa 'a' pero cuidado con duplicados
     with open(ARCHIVO_SALIDA, "w", encoding="utf-8") as f:
         f.write("#EXTM3U\n")
 
@@ -81,17 +79,20 @@ def main():
     
     # Recorremos los sitemaps
     for sitemap in sitemaps:
-        print(f"Analizando sitemap: {sitemap}")
+        print(f"📂 Analizando sitemap: {sitemap}")
         urls = extraer_urls_del_xml(sitemap)
         
         for url_video in urls:
+            # --- VERIFICACIÓN DE LÍMITE ---
+            if contador_videos >= MAX_VIDEOS:
+                print(f"\n🛑 ¡Límite de {MAX_VIDEOS} videos alcanzado! Finalizando script.")
+                return # Detiene TODO el script inmediatamente
+
             # --- FILTRO MAESTRO ---
             if "uncensored" not in url_video.lower():
-                # print(f"Saltando (censurado): {url_video}") # Descomentar para debug
                 continue
             
-            # Si pasa el filtro, extraemos
-            print(f"Procesando: {url_video}")
+            print(f"[{contador_videos + 1}/{MAX_VIDEOS}] Procesando: {url_video}")
             linea_m3u = procesar_video(url_video)
             
             if linea_m3u:
@@ -99,7 +100,6 @@ def main():
                     f.write(linea_m3u)
                 contador_videos += 1
             
-            # Pausa pequeña para no saturar GitHub ni el servidor
             time.sleep(random.uniform(0.5, 1.5))
 
     print(f"--- Finalizado. Total videos: {contador_videos} ---")
