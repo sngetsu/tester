@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       sitemap_url:
-        description: 'URL del Sitemap XML a procesar (Ej: https://missav.ws/sitemap_items_475.xml)'
+        description: 'URL del Sitemap XML (Ej: https://missav.ws/sitemap_items_477.xml)'
         required: true
         default: 'https://missav.ws/sitemap_items_477.xml'
 
@@ -33,8 +33,8 @@ jobs:
         TARGET_SITEMAP: ${{ github.event.inputs.sitemap_url }}
       run: python scraper.py
 
-    - name: Guardar cambios
+    - name: Guardar cambios (Carpeta playlists)
       uses: stefanzweifel/git-auto-commit-action@v5
       with:
-        commit_message: "Agregados videos de ${{ github.event.inputs.sitemap_url }}"
-        file_pattern: "*.m3u"
+        commit_message: "Nuevo playlist agregado: ${{ github.event.inputs.sitemap_url }}"
+        file_pattern: "playlists/*.m3u"
